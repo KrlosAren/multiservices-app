@@ -1,0 +1,7 @@
+#!/bin/bash
+
+while true 
+do http localhost/node-app/api/messages/
+
+sleep .1
+done

@@ -1,0 +1,215 @@
+version: '3'
+
+volumes:
+  django_app_postgres_data: {}
+  django_app_postgres_data_backups: {}
+  grafana_data: {}
+
+services:
+  django:
+    build:
+      context: .
+      dockerfile: ./django-app/Dockerfile
+    image: django_app
+    container_name: django_app
+    platform: linux/x86_64
+    volumes:
+      - ./django-app:/django-app:z
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    command: /start
+    depends_on:
+      - postgres
+    ports:
+      - '8000:8000'
+    restart: always
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.frontend.entryPoints=web'
+      - 'traefik.http.routers.django.rule=Host(`django.localhost`)'
+
+  node:
+    build:
+      context: .
+      dockerfile: ./node-app/Dockerfile
+    image: node_app
+    container_name: node_app
+    platform: linux/x86_64
+    volumes:
+      - ./node-app:/node-app:z
+    env_file:
+      - ./.envs/.local/.node
+      - ./.envs/.local/.postgres
+    depends_on:
+      - postgres
+    restart: always
+    # labels:
+    #   - 'traefik.enable=true'
+    #   - 'traefik.frontend.rule=PathPrefix:/node-app'
+    #   - 'traefik.frontend.entryPoints=web'
+    #   - 'traefik.http.routers.node.rule=Host(`localhost`) && PathPrefix(`/node-app`)'
+    #   - 'traefik.http.middlewares.node-stripprefix.stripprefix.prefixes=/node-app'
+    #   - 'traefik.http.routers.node.middlewares=node-stripprefix'
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.frontend.entryPoints=web'
+      - 'traefik.http.routers.node.rule=Host(`node.localhost`)'
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
+    image: nginx
+    container_name: nginx
+    volumes:
+      - ./nginx:/etc/nginx/conf.d:z
+    restart: unless-stopped
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.frontend.rule=PathPrefix:/static'
+      - 'traefik.frontend.entryPoints=web'
+      - 'traefik.http.routers.nginx.rule=Host(`localhost`) && PathPrefix(`/static`)'
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./postgres/Dockerfile
+    image: postgres
+    container_name: postgres
+    volumes:
+      - django_app_postgres_data:/var/lib/postgresql/data:Z
+      - django_app_postgres_data_backups:/backups:z
+    env_file:
+      - ./.envs/.local/.postgres
+
+  pgadmin:
+    build:
+      context: .
+      dockerfile: ./pgadmin/Dockerfile
+    container_name: pgadmin
+    image: pgadmin
+    env_file:
+      - ./.envs/.local/.pgadmin
+    restart: unless-stopped
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.frontend.rule=PathPrefix:/pgadmin4'
+      - 'traefik.frontend.entryPoints=web'
+      - 'traefik.http.routers.pgadmin.rule=Host(`localhost`) && PathPrefix(`/pgadmin4/`)'
+
+  grafana:
+    build:
+      context: .
+      dockerfile: ./grafana/Dockerfile
+    image: grafana
+    depends_on:
+      - postgres
+    restart: always
+    expose:
+      - '3000'
+    labels:
+      - 'traefik.http.routers.grafana.rule=Host(`localhost`) && PathPrefix(`/grafana`)'
+    volumes:
+      - grafana_data:/var/lib/grafana:z
+
+  reverse-proxy:
+    image: traefik:v2.6
+    command: --api.insecure=true --providers.docker
+    ports:
+      - '80:80'
+      - '8080:8080'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  psql_exporter:
+    build:
+      context: .
+      dockerfile: ./psq-exporter/Dockerfile
+    image: psql_exporter
+    container_name: psql_exporter
+    env_file:
+      - ./psq-exporter/.env
+    ports:
+      - '9187:9187'
+
+  prometheus:
+    build:
+      context: .
+      dockerfile: ./prometheus/Dockerfile
+    image: prometheus
+    container_name: prometheus
+    ports:
+      - '9090:9090'
+
+  client:
+    build:
+      context: .
+      dockerfile: ./client/Dockerfile
+    image: client
+    container_name: client
+    volumes:
+      - ./client:/client:z
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+      
+  redis:
+    image: redis:6-alpine
+    container_name: redis
+    restart: unless-stopped
+    expose:
+      - '6379'
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: ./django-app/Dockerfile
+    image: celery_worker
+    command: /start-celeryworker
+    volumes:
+      - ./django-app:/django-app:z
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    depends_on:
+      - redis
+      - postgres
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: ./django-app/Dockerfile
+    image: celery_beat
+    command: /start-celerybeat
+    volumes:
+      - ./django-app:/django-app:z
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    depends_on:
+      - redis
+      - postgres
+
+  flower:
+    build:
+      context: .
+      dockerfile: ./django-app/Dockerfile
+    image: flower
+    command: /start-flower
+    volumes:
+      - ./django-app:/django-app:z
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    ports:
+      - 5555:5555
+    depends_on:
+      - redis
+      - postgres
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.0
+    container_name: mailhog
+    ports:
+      - "8025:8025"

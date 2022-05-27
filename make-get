@@ -1,0 +1,7 @@
+#!/bin/bash
+
+while true 
+do curl http://localhost/django-app/api/users/  | jq
+
+sleep .5
+done
