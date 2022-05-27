@@ -1,4 +1,4 @@
-# Examples of multirservices apps with Docker
+# Examples of multiservices apps with Docker
 
 ### Services
 
