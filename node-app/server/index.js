@@ -6,17 +6,19 @@ const { messagesApi } = require('../routes/messages');
 
 const http = require('http');
 const socketIO = require('socket.io');
+// const { Server: WS } = require('socket.io');
 const Sockets = require('./sockets');
 const cors = require('cors');
 
 class Server {
     constructor() {
         this.app = express();
+        this.db = new Database();
+        this.options = {};
+        this.server = http.createServer(this.app);
+        this.io = socketIO(this.server, this.options);
         this.config();
         this.routes();
-        this.db = new Database();
-        this.server = http.createServer(this.app);
-        this.io = socketIO(this.server);
     }
 
     config() {
@@ -28,8 +30,8 @@ class Server {
     }
 
     middlewares() {
-        this.app.use(express.urlencoded({ extended: false }));
-        this.app.use(express.static(path.join(__dirname, '../public')));
+        // this.app.use(express.urlencoded({ extended: false }));
+        // this.app.use(express.static(path.join(__dirname, '../public')));
         this.app.use(cors());
         this.app.use(express.json());
     }
@@ -40,6 +42,13 @@ class Server {
 
     routes() {
         messagesApi(this.app);
+
+        this.app.get('/', (req, res) => {
+            res.json({
+                req: req.headers,
+                res: res.req.headers,
+            });
+        });
     }
 
     start() {
