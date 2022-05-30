@@ -19,8 +19,9 @@ if READ_DOT_ENV_FILE:
     # OS environment variables take precedence over variables from .env
     env.read_env(str(ROOT_DIR / ".env"))
 
-
+CORS_ALLOW_ALL_ORIGINS = True
 ALLOWED_HOSTS = ["*"]
+
 
 DJANGO_APPS = [
     'django.contrib.sites',
@@ -35,6 +36,7 @@ DJANGO_APPS = [
 THRID_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
+    'corsheaders',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -257,3 +259,5 @@ CHANNEL_LAYERS = {
 EMAIL_HOST = env("EMAIL_HOST", default="mailhog")
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-port
 EMAIL_PORT = 1025
+
+

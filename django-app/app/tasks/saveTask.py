@@ -14,9 +14,9 @@ logger = get_task_logger(__name__)
 @shared_task(name='send_message_after_save', max_retries=3)
 def send_message_after_save(message):
   channel_layer = channels.layers.get_channel_layer()
-  async_to_sync(channel_layer.group_send)(f"tasks-{message['user']}", {
-    'type': 'item_processed',
-    'item': message,
+  async_to_sync(channel_layer.group_send)("emails", {
+    'type': 'send_email',
+    'message': message,
   })
   logger.info(f"Message {message['id']} sent to channel {message['user']}")
   

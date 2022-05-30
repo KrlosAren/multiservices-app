@@ -21,13 +21,18 @@ services:
     command: /start
     depends_on:
       - postgres
-    ports:
-      - '8000:8000'
     restart: always
     labels:
       - 'traefik.enable=true'
+      - 'traefik.frontend.rule=PathPrefix:/django-app'
       - 'traefik.frontend.entryPoints=web'
-      - 'traefik.http.routers.django.rule=Host(`django.localhost`)'
+      - 'traefik.http.routers.django.rule=Host(`django.localhost`) || Host(`localhost`) && PathPrefix(`/django-app`)'
+      - 'traefik.http.middlewares.django-stripprefix.stripprefix.prefixes=/django-app'
+      - 'traefik.http.routers.django.middlewares=django-stripprefix'
+    # labels:
+    #   - 'traefik.enable=true'
+    #   - 'traefik.frontend.entryPoints=web'
+    #   - 'traefik.http.routers.django.rule=Host(`django.localhost`)'
 
   node:
     build:
@@ -44,17 +49,22 @@ services:
     depends_on:
       - postgres
     restart: always
-    # labels:
-    #   - 'traefik.enable=true'
-    #   - 'traefik.frontend.rule=PathPrefix:/node-app'
-    #   - 'traefik.frontend.entryPoints=web'
-    #   - 'traefik.http.routers.node.rule=Host(`localhost`) && PathPrefix(`/node-app`)'
-    #   - 'traefik.http.middlewares.node-stripprefix.stripprefix.prefixes=/node-app'
-    #   - 'traefik.http.routers.node.middlewares=node-stripprefix'
     labels:
       - 'traefik.enable=true'
-      - 'traefik.frontend.entryPoints=web'
-      - 'traefik.http.routers.node.rule=Host(`node.localhost`)'
+      - 'traefik.http.routers.node.rule=Host(`node.localhost`) || Host(`localhost`) && PathPrefix(`/node-app`)'
+      - 'traefik.http.routers.node.entrypoints=http,ws'
+      - 'traefik.http.middlewares.node-stripprefix.stripprefix.prefixes=/node-app'
+      - 'traefik.http.routers.node.middlewares=node-stripprefix'
+      # - 'traefik.enable=true'
+      # - 'traefik.frontend.rule=PathPrefix:/node-app'
+      # - 'traefik.frontend.entryPoints=web'
+      # - 'traefik.http.routers.node.rule=Host(`node.localhost`) || Host(`localhost`) && PathPrefix(`/node-app`)'
+      # - 'traefik.http.middlewares.node-stripprefix.stripprefix.prefixes=/node-app'
+      # - 'traefik.http.routers.node.middlewares=node-stripprefix'
+    # labels:
+    #   - 'traefik.enable=true'
+    #   - 'traefik.frontend.entryPoints=web'
+    #   - 'traefik.http.routers.node.rule=Host(`node.localhost`) || Host(`localhost`) && PathPrefix(`/websocket`)'
 
   nginx:
     build:
@@ -65,11 +75,12 @@ services:
     volumes:
       - ./nginx:/etc/nginx/conf.d:z
     restart: unless-stopped
+    ports:
+      - '3101:3101'
     labels:
       - 'traefik.enable=true'
-      - 'traefik.frontend.rule=PathPrefix:/static'
       - 'traefik.frontend.entryPoints=web'
-      - 'traefik.http.routers.nginx.rule=Host(`localhost`) && PathPrefix(`/static`)'
+      - 'traefik.http.routers.nginx.rule=Host(`localhost`)'
 
   postgres:
     build:
@@ -115,12 +126,20 @@ services:
 
   reverse-proxy:
     image: traefik:v2.6
-    command: --api.insecure=true --providers.docker
+    command: >
+      --api.debug=true
+      --api.insecure=true
+      --providers.docker
+      --entrypoints.http.address=:80
+      --accesslog=true
+      --log.level=INFO
     ports:
       - '80:80'
       - '8080:8080'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:secret_password"
 
   psql_exporter:
     build:
@@ -148,12 +167,17 @@ services:
       dockerfile: ./client/Dockerfile
     image: client
     container_name: client
+    restart: unless-stopped
     volumes:
       - ./client:/client:z
-    restart: unless-stopped
     ports:
-      - '3000:3000'
-      
+      - '3000'
+      - '3101'
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.frontend.entryPoints=web'
+      - 'traefik.http.routers.client.rule=Host(`localhost`)'
+
   redis:
     image: redis:6-alpine
     container_name: redis
@@ -166,6 +190,7 @@ services:
       context: .
       dockerfile: ./django-app/Dockerfile
     image: celery_worker
+    container_name: celery_worker
     command: /start-celeryworker
     volumes:
       - ./django-app:/django-app:z
@@ -181,6 +206,7 @@ services:
       context: .
       dockerfile: ./django-app/Dockerfile
     image: celery_beat
+    container_name: celery_beat
     command: /start-celerybeat
     volumes:
       - ./django-app:/django-app:z
@@ -196,6 +222,7 @@ services:
       context: .
       dockerfile: ./django-app/Dockerfile
     image: flower
+    container_name: flower
     command: /start-flower
     volumes:
       - ./django-app:/django-app:z
@@ -212,4 +239,4 @@ services:
     image: mailhog/mailhog:v1.0.0
     container_name: mailhog
     ports:
-      - "8025:8025"
+      - '8025:8025'

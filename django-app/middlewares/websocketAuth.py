@@ -1,9 +1,13 @@
+import logging
+from asyncio.log import logger
+
 import jwt
 from app.users.models import User
 from channels.db import database_sync_to_async
 from channels.middleware import BaseMiddleware
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
+from rest_framework.exceptions import AuthenticationFailed
 
 
 @database_sync_to_async
@@ -26,16 +30,22 @@ class WebsocketAuth(BaseMiddleware):
       
         token = False
         query = scope['query_string']
-        if query:
+        if query.decode('utf-8') != '':
           query = query.decode('utf-8')
           query = query.split('=')
           
           if query[0] == 'access_token':
             token = query[1]
           
-        if token:
-          
-          token_data = jwt.decode(token,settings.SECRET_KEY, algorithms=['HS256'])
-          scope['user'] = await get_user(token_data['user_id'])
+          if token:
+            try:
+              token_data = jwt.decode(token,settings.SECRET_KEY, algorithms=['HS256'])
+              scope['user'] = await get_user(token_data['user_id'])
+            except jwt.ExpiredSignatureError:
+              logging.info('Token expired')
+              raise AuthenticationFailed('Token expired')
+              
+        else:
+          raise AuthenticationFailed('No token')
         
         return await self.app(scope, receive, send)
