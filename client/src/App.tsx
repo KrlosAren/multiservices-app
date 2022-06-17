@@ -16,12 +16,19 @@ interface messageType {
 function App() {
   const [messages, setMessage] = useState<Array<messageType>>([]);
 
-  const { logged } = useContext(AuthContext);
+  const {
+    logged,
+    auth: { access_token },
+  } = useContext(AuthContext);
 
   const fechMessage = async () => {
-    const resp = await fetchAPI('http://node.localhost/api/messages', 'get');
-    console.log(resp);
-    return resp;
+    const resp = await fetchAPI(
+      'http://localhost/node-app/api/messages',
+      'get',
+      {},
+      access_token
+    );
+    setMessage(resp.data.messages);
   };
 
   const { socket, onMessage, online } = useContext(SocketContext);

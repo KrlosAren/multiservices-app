@@ -9,6 +9,7 @@ from rest_framework import serializers
 
 class MessageModelSerializer(serializers.ModelSerializer):
   
+    user = UserSerializer()
     class Meta:
         model = Message
         fields = ('text','user')
