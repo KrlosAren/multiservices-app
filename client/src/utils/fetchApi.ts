@@ -1,11 +1,10 @@
 import axios from 'axios';
 
-const fetchAPI = (url: string, method: string, body?: {}) => {
+const fetchAPI = (url: string, method: string, body?: {}, token?: string) => {
   const headers = {
     'Content-Type': 'application/json',
+    Authorization: token ? token : '',
   };
-  console.log(url, method, body);
-
   return axios({
     url,
     method,
@@ -14,7 +13,7 @@ const fetchAPI = (url: string, method: string, body?: {}) => {
   })
     .then((response) => response)
     .catch((error) => {
-      console.log(error);
+      // console.log(error);
       throw error;
     });
 };

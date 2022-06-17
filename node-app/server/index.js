@@ -19,6 +19,15 @@ class Server {
         this.io = socketIO(this.server, this.options);
         this.config();
         this.routes();
+
+        this.corsOptions = {
+            origin: [
+                /node.localhost/,
+                'http://node.localhost/',
+                'http://localhost',
+                'http://localhost',
+            ],
+        };
     }
 
     config() {
@@ -30,8 +39,8 @@ class Server {
     }
 
     middlewares() {
-        // this.app.use(express.urlencoded({ extended: false }));
-        // this.app.use(express.static(path.join(__dirname, '../public')));
+        this.app.use(express.urlencoded({ extended: false }));
+        this.app.use(express.static(path.join(__dirname, '../public')));
         this.app.use(cors());
         this.app.use(express.json());
     }

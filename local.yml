@@ -51,20 +51,12 @@ services:
     restart: always
     labels:
       - 'traefik.enable=true'
+      - 'traefik.frontend.rule=PathPrefix:/node-app'
+      - 'traefik.frontend.entryPoints=web'
       - 'traefik.http.routers.node.rule=Host(`node.localhost`) || Host(`localhost`) && PathPrefix(`/node-app`)'
-      - 'traefik.http.routers.node.entrypoints=http,ws'
       - 'traefik.http.middlewares.node-stripprefix.stripprefix.prefixes=/node-app'
       - 'traefik.http.routers.node.middlewares=node-stripprefix'
-      # - 'traefik.enable=true'
-      # - 'traefik.frontend.rule=PathPrefix:/node-app'
-      # - 'traefik.frontend.entryPoints=web'
-      # - 'traefik.http.routers.node.rule=Host(`node.localhost`) || Host(`localhost`) && PathPrefix(`/node-app`)'
-      # - 'traefik.http.middlewares.node-stripprefix.stripprefix.prefixes=/node-app'
-      # - 'traefik.http.routers.node.middlewares=node-stripprefix'
-    # labels:
-    #   - 'traefik.enable=true'
-    #   - 'traefik.frontend.entryPoints=web'
-    #   - 'traefik.http.routers.node.rule=Host(`node.localhost`) || Host(`localhost`) && PathPrefix(`/websocket`)'
+
 
   nginx:
     build:
@@ -139,7 +131,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     labels:
-      - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:secret_password"
+        - "traefik.http.routers.frontend.entrypoints=http"
+        - "traefik.http.middlewares.frontend.headers.customresponseheaders.Access-Control-Allow-Origin=*"
+        - "traefik.http.routers.frontend.middlewares=frontend"
 
   psql_exporter:
     build:
